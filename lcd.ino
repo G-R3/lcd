@@ -7,6 +7,8 @@ struct FormattedTime {
 
 const int pauseBtnPin = 6;
 const int resetBtnPin = 7;
+const int menuBtnPin = 8;
+const int selectBtnPin = 9;
 
 const int rs = 12;
 const int enable = 11;
@@ -39,19 +41,28 @@ enum TimerState {
   RUNNING,
 };
 
+enum Screen {
+  MENU,
+  TIMER,
+  CONFIG,
+};
+
 TimerState timerState = RUNNING;
+Screen screenState = MENU;
+
+int selectedIndex = 0;
 
 void setup() {
   lcd.begin(16, 2);
   lcd.clear();
   lcd.setCursor(0, 0);
 
-  startTime = millis();
-
   Serial.begin(9600);
 
   pinMode(pauseBtnPin, INPUT);
   pinMode(resetBtnPin, INPUT);
+  pinMode(menuBtnPin, INPUT);
+  pinMode(selectBtnPin, INPUT);
 }
 
 void render(int minutes, int seconds, bool focusMode) {
@@ -77,6 +88,56 @@ void render(int minutes, int seconds, bool focusMode) {
     lcd.print("PAUSED");
   } else {
     lcd.print("      ");
+  }
+}
+
+void renderMenu() {
+  if (screenState == MENU) {
+    lcd.setCursor(0, 0);
+    if (selectedIndex == 0) {
+      lcd.print(">");
+    } else {
+      lcd.print(" ");
+    }
+    lcd.print("Start");
+
+    lcd.setCursor(0, 1);
+    if (selectedIndex == 1) {
+      lcd.print(">");
+    } else {
+      lcd.print(" ");
+    }
+    lcd.print("Config");
+  }
+}
+
+void renderConfig() {
+  if (screenState == CONFIG) {
+    lcd.setCursor(0, 0);
+    if (selectedIndex == 0) {
+      lcd.print(">");
+    } else {
+      lcd.print(" ");
+    }
+    lcd.print("5/3");
+
+    lcd.setCursor(0, 1);
+    if (selectedIndex == 1) {
+      lcd.print(">");
+    } else {
+      lcd.print(" ");
+    }
+    lcd.print("10/5");
+  }
+}
+
+void initTimer() {
+  if (screenState == TIMER) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+
+    startTime = millis();
+    focusMode = true;
   }
 }
 
@@ -115,7 +176,7 @@ FormattedTime formatTime() {
   return t;
 }
 
-void reset(int resetTimer) {
+void resetTime(int resetTimer) {
   if (resetTimer == HIGH) {
     startTime = millis();
 
@@ -126,48 +187,105 @@ void reset(int resetTimer) {
 }
 
 void loop() {
-  currentPauseState = digitalRead(pauseBtnPin);
-  toggleTimer(currentPauseState);
+  int navigate = digitalRead(menuBtnPin);
+  if (navigate) {
+    delay(100);
+    navigate = digitalRead(menuBtnPin);
+    if (navigate) {
+      selectedIndex += 1;
 
-  resetTimer = digitalRead(resetBtnPin);
-  reset(resetTimer);
-
-  switch (timerState) {
-    case PAUSED:
-      {
-        auto time = formatTime();
-
-        render(time.minutes, time.seconds, focusMode);
-        break;
+      if (selectedIndex > 1) {
+        selectedIndex = 0;
       }
-    case RUNNING:
-      {
-
-        if (modeJustEnded) {
-          // render 0:00 for 1 second before transitioning to the next mode
-          if (millis() - modeEndedAt >= 1000) {
-            focusMode = !focusMode;
-            startTime = millis();
-            remainingTime = getRemainingTime();
-            modeJustEnded = false;
-          }
-        } else {
-          remainingTime = getRemainingTime();
-
-          if (remainingTime <= 0) {
-            remainingTime = 0;
-            modeEndedAt = millis();
-            modeJustEnded = true;
-          }
+    }
+  }
+  int select = digitalRead(selectBtnPin);
+  if (select) {
+    delay(50);
+    select = digitalRead(selectBtnPin);
+    if (select) {
+      if (screenState == TIMER) {
+        lcd.clear();
+        screenState = MENU;
+        Serial.println("Returning to menu...");
+        // renderMenu();
+      } else if (screenState == MENU) {
+        if (selectedIndex == 0) {
+          screenState = TIMER;
+          lcd.clear();
+          initTimer();
+          Serial.println("Starting Timer...");
+        } else if (selectedIndex == 1) {
+          lcd.clear();
+          selectedIndex = 0;
+          screenState = CONFIG;
+          Serial.println("Rendering config...");
+        }
+      } else if (screenState == CONFIG) {
+        if (selectedIndex == 0) {
+          focusTime = 5000;
+          breakTime = 3000;
+          Serial.println("Selected 5 seconds focus, 3 seconds break");
+        } else if (selectedIndex == 1) {
+          focusTime = 10000;
+          breakTime = 5000;
+          Serial.println("Selected 10 seconds focus, 5 seconds break");
         }
 
-
-        auto time = formatTime();
-
-        render(time.minutes, time.seconds, focusMode);
-        break;
+        screenState = MENU;
+        selectedIndex = 1;
       }
+    }
   }
 
-  prevPauseState = currentPauseState;
+  if (screenState == MENU) {
+    renderMenu();
+  } else if (screenState == CONFIG) {
+    renderConfig();
+  } else if (screenState == TIMER) {
+    currentPauseState = digitalRead(pauseBtnPin);
+    toggleTimer(currentPauseState);
+
+    resetTimer = digitalRead(resetBtnPin);
+    resetTime(resetTimer);
+
+    switch (timerState) {
+      case PAUSED:
+        {
+          auto time = formatTime();
+
+          render(time.minutes, time.seconds, focusMode);
+          break;
+        }
+      case RUNNING:
+        {
+
+          if (modeJustEnded) {
+            // render 0:00 for 1 second before transitioning to the next mode
+            if (millis() - modeEndedAt >= 1000) {
+              focusMode = !focusMode;
+              startTime = millis();
+              remainingTime = getRemainingTime();
+              modeJustEnded = false;
+            }
+          } else {
+            remainingTime = getRemainingTime();
+
+            if (remainingTime <= 0) {
+              remainingTime = 0;
+              modeEndedAt = millis();
+              modeJustEnded = true;
+            }
+          }
+
+
+          auto time = formatTime();
+
+          render(time.minutes, time.seconds, focusMode);
+          break;
+        }
+    }
+
+    prevPauseState = currentPauseState;
+  }
 }
