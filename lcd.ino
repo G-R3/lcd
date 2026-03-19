@@ -28,7 +28,7 @@ LiquidCrystal lcd(rs, enable, d4, d5, d6, d7);
 
 unsigned long startTime;
 // const long focusTime = 1500000 // 25 minutes
-unsigned long focusTime = 5000;  // 5 seconds
+unsigned long focusTime = 600000;  // 5 seconds
 unsigned long breakTime = 3000;  // 3 seconds;
 
 long remainingTime = focusTime;
@@ -45,6 +45,8 @@ unsigned long timerPausedAt;
 DebouncedButton resetBtn = {resetBtnPin, LOW, LOW, 0};
 DebouncedButton selectBtn = {selectBtnPin, LOW, LOW, 0};
 DebouncedButton menuBtn = {menuBtnPin, LOW, LOW, 0};
+
+unsigned long paintScreen = 1000;
 
 enum TimerState {
   PAUSED,
@@ -95,6 +97,11 @@ bool wasPressed(DebouncedButton &btn, unsigned long now, unsigned long debounceM
 }
 
 void render(int minutes, int seconds, bool focusMode) {
+  if(timerState == RUNNING) {
+    // should only clear when its running and not paused.
+    lcd.clear();
+  }
+
   lcd.setCursor(0, 0);
 
   if (focusMode) {
@@ -114,7 +121,7 @@ void render(int minutes, int seconds, bool focusMode) {
 
   lcd.setCursor(5, 1);
   if (timerState == PAUSED) {
-    lcd.print("PAUSED");
+    lcd.print(" PAUSED");
   } else {
     lcd.print("      ");
   }
@@ -166,6 +173,7 @@ void initTimer() {
     lcd.setCursor(0, 0);
 
     startTime = millis();
+    paintScreen = 1000; // immediately display timer
     remainingTime = focusTime;
     focusMode = true;
     timerState = RUNNING;
@@ -176,6 +184,7 @@ void initTimer() {
     timerPausedAt = 0;
     currentPauseState = 0;
     prevPauseState = 0;
+
   }
 }
 
@@ -218,6 +227,8 @@ void resetTime(int resetTimer) {
   if (resetTimer == HIGH) {
     Serial.println("Resetting timer...");
     startTime = millis();
+
+    paintScreen = 1000; // paint to screen immediately
 
     if(timerState == PAUSED) {
       timerPausedAt = startTime;
@@ -316,9 +327,15 @@ void loop() {
           }
 
 
-          auto time = formatTime();
+          // only update the displau every 1000ms. avoid flickering
+          if(millis() - paintScreen >= 1000) {
+            auto time = formatTime();
 
-          render(time.minutes, time.seconds, focusMode);
+            render(time.minutes, time.seconds, focusMode);
+
+            paintScreen = millis();
+          }
+
           break;
         }
     }
