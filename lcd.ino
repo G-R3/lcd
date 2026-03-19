@@ -29,7 +29,7 @@ LiquidCrystal lcd(rs, enable, d4, d5, d6, d7);
 unsigned long startTime;
 // const long focusTime = 1500000 // 25 minutes
 unsigned long focusTime = 600000;  // 5 seconds
-unsigned long breakTime = 3000;  // 3 seconds;
+unsigned long breakTime = 3000;    // 3 seconds;
 
 long remainingTime = focusTime;
 
@@ -37,14 +37,12 @@ bool focusMode = true;
 bool modeJustEnded = false;
 unsigned long modeEndedAt = 0;
 
-
-int currentPauseState = 0;
-int prevPauseState = 0;
 unsigned long timerPausedAt;
 
-DebouncedButton resetBtn = {resetBtnPin, LOW, LOW, 0};
-DebouncedButton selectBtn = {selectBtnPin, LOW, LOW, 0};
-DebouncedButton menuBtn = {menuBtnPin, LOW, LOW, 0};
+DebouncedButton resetBtn = { resetBtnPin, LOW, LOW, 0 };
+DebouncedButton selectBtn = { selectBtnPin, LOW, LOW, 0 };
+DebouncedButton menuBtn = { menuBtnPin, LOW, LOW, 0 };
+DebouncedButton pauseBtn = { pauseBtnPin, LOW, LOW, 0 };
 
 enum TimerState {
   PAUSED,
@@ -78,14 +76,14 @@ void setup() {
 bool wasPressed(DebouncedButton &btn, unsigned long now, unsigned long debounceMs = 50) {
   bool reading = digitalRead(btn.pin);
 
-  if(reading != btn.lastReading) {
+  if (reading != btn.lastReading) {
     btn.lastReading = reading;
     btn.lastChangedTime = now;
   }
 
-  if((now - btn.lastChangedTime) >= debounceMs && reading != btn.stableState) {
+  if ((now - btn.lastChangedTime) >= debounceMs && reading != btn.stableState) {
     btn.stableState = reading;
-    if(btn.stableState == HIGH) {
+    if (btn.stableState == HIGH) {
       return true;
     }
   }
@@ -174,21 +172,16 @@ void initTimer() {
     modeJustEnded = false;
 
     timerPausedAt = 0;
-    currentPauseState = 0;
-    prevPauseState = 0;
-
   }
 }
 
-void toggleTimer(int currentPauseState) {
-  if (currentPauseState == 1 && prevPauseState == 0) {
-    if (timerState == RUNNING) {
-      timerPausedAt = millis();
-      timerState = PAUSED;
-    } else {
-      startTime += millis() - timerPausedAt;
-      timerState = RUNNING;
-    }
+void toggleTimer() {
+  if (timerState == RUNNING) {
+    timerPausedAt = millis();
+    timerState = PAUSED;
+  } else {
+    startTime += millis() - timerPausedAt;
+    timerState = RUNNING;
   }
 }
 
@@ -220,7 +213,7 @@ void resetTime(int resetTimer) {
     Serial.println("Resetting timer...");
     startTime = millis();
 
-    if(timerState == PAUSED) {
+    if (timerState == PAUSED) {
       timerPausedAt = startTime;
       remainingTime = getRemainingTime();
     }
@@ -279,13 +272,14 @@ void loop() {
   } else if (screenState == CONFIG) {
     renderConfig();
   } else if (screenState == TIMER) {
-    currentPauseState = digitalRead(pauseBtnPin);
-    toggleTimer(currentPauseState);
+    if (wasPressed(pauseBtn, millis())) {
+      toggleTimer();
+    }
 
-   if(wasPressed(resetBtn, millis())) {
-    resetTime(HIGH);
-   }
-   
+    if (wasPressed(resetBtn, millis())) {
+      resetTime(HIGH);
+    }
+
 
     switch (timerState) {
       case PAUSED:
@@ -319,13 +313,10 @@ void loop() {
 
           auto time = formatTime();
 
-          render(time.minutes, time.seconds, focusMode);        
+          render(time.minutes, time.seconds, focusMode);
 
           break;
         }
     }
-
-    // prevResetState = resetTimerReading;
-    prevPauseState = currentPauseState;
   }
 }
