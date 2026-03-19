@@ -216,6 +216,11 @@ void resetTime(int resetTimer) {
     Serial.println("Resetting timer...");
     startTime = millis();
 
+    if(timerState == PAUSED) {
+      timerPausedAt = startTime;
+      remainingTime = getRemainingTime();
+    }
+
     // we want to be able to reset during the transitioning phase (rendering 0:00).
     modeEndedAt = 0;
     modeJustEnded = false;
