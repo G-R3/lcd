@@ -42,11 +42,6 @@ int currentPauseState = 0;
 int prevPauseState = 0;
 unsigned long timerPausedAt;
 
-// int resetTimer = 0;
-// int prevResetState = 0;
-// unsigned long resetTimerLastDebounceTime = 0;
-// unsigned long resetTimerDebounceDelay = 50;
-
 DebouncedButton resetBtn = {resetBtnPin, LOW, LOW, 0};
 DebouncedButton selectBtn = {selectBtnPin, LOW, LOW, 0};
 DebouncedButton menuBtn = {menuBtnPin, LOW, LOW, 0};
@@ -171,7 +166,13 @@ void initTimer() {
     lcd.setCursor(0, 0);
 
     startTime = millis();
+    remainingTime = focusTime;
     focusMode = true;
+    timerState = RUNNING;
+
+    // timerPausedAt = 0;
+    // currentPauseState = 0;
+    // prevPauseState = 0;
   }
 }
 
