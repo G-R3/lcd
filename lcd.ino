@@ -30,11 +30,15 @@ bool focusMode = true;
 bool modeJustEnded = false;
 unsigned long modeEndedAt = 0;
 
+
 int currentPauseState = 0;
 int prevPauseState = 0;
 unsigned long timerPausedAt;
 
 int resetTimer = 0;
+int prevResetState = 0;
+unsigned long resetTimerLastDebounceTime = 0;
+unsigned long resetTimerDebounceDelay = 50;
 
 enum TimerState {
   PAUSED,
@@ -178,6 +182,7 @@ FormattedTime formatTime() {
 
 void resetTime(int resetTimer) {
   if (resetTimer == HIGH) {
+    Serial.println("Resetting timer...");
     startTime = millis();
 
     // we want to be able to reset during the transitioning phase (rendering 0:00).
@@ -248,8 +253,20 @@ void loop() {
     currentPauseState = digitalRead(pauseBtnPin);
     toggleTimer(currentPauseState);
 
-    resetTimer = digitalRead(resetBtnPin);
-    resetTime(resetTimer);
+    int resetTimerReading = digitalRead(resetBtnPin);
+    if(resetTimerReading != prevResetState) {
+      resetTimerLastDebounceTime = millis();
+      // resetTime(resetTimer);
+    }
+
+    if ((millis() - resetTimerLastDebounceTime) > resetTimerDebounceDelay) {
+      if(resetTimerReading != resetTimer) {
+        resetTimer = resetTimerReading;
+        if(resetTimer == HIGH) {
+          resetTime(resetTimer);
+        }
+      }
+    }
 
     switch (timerState) {
       case PAUSED:
@@ -288,6 +305,7 @@ void loop() {
         }
     }
 
+    prevResetState = resetTimerReading;
     prevPauseState = currentPauseState;
   }
 }
