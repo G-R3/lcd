@@ -46,8 +46,6 @@ DebouncedButton resetBtn = {resetBtnPin, LOW, LOW, 0};
 DebouncedButton selectBtn = {selectBtnPin, LOW, LOW, 0};
 DebouncedButton menuBtn = {menuBtnPin, LOW, LOW, 0};
 
-unsigned long paintScreen = 1000;
-
 enum TimerState {
   PAUSED,
   RUNNING,
@@ -97,11 +95,6 @@ bool wasPressed(DebouncedButton &btn, unsigned long now, unsigned long debounceM
 }
 
 void render(int minutes, int seconds, bool focusMode) {
-  if(timerState == RUNNING) {
-    // should only clear when its running and not paused.
-    lcd.clear();
-  }
-
   lcd.setCursor(0, 0);
 
   if (focusMode) {
@@ -111,19 +104,19 @@ void render(int minutes, int seconds, bool focusMode) {
   }
 
   lcd.setCursor(0, 1);
+  if (minutes < 10) lcd.print("0");
   lcd.print(minutes);
   lcd.print(":");
-
   if (seconds < 10) lcd.print("0");
-
   lcd.print(seconds);
+  lcd.print(" ");
 
 
   lcd.setCursor(5, 1);
   if (timerState == PAUSED) {
     lcd.print(" PAUSED");
   } else {
-    lcd.print("      ");
+    lcd.print("       ");
   }
 }
 
@@ -173,7 +166,6 @@ void initTimer() {
     lcd.setCursor(0, 0);
 
     startTime = millis();
-    paintScreen = 1000; // immediately display timer
     remainingTime = focusTime;
     focusMode = true;
     timerState = RUNNING;
@@ -227,8 +219,6 @@ void resetTime(int resetTimer) {
   if (resetTimer == HIGH) {
     Serial.println("Resetting timer...");
     startTime = millis();
-
-    paintScreen = 1000; // paint to screen immediately
 
     if(timerState == PAUSED) {
       timerPausedAt = startTime;
@@ -327,14 +317,9 @@ void loop() {
           }
 
 
-          // only update the displau every 1000ms. avoid flickering
-          if(millis() - paintScreen >= 1000) {
-            auto time = formatTime();
+          auto time = formatTime();
 
-            render(time.minutes, time.seconds, focusMode);
-
-            paintScreen = millis();
-          }
+          render(time.minutes, time.seconds, focusMode);        
 
           break;
         }
