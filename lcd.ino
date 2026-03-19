@@ -5,6 +5,13 @@ struct FormattedTime {
   int minutes;
 };
 
+struct DebouncedButton {
+  byte pin;
+  bool stableState;
+  bool lastReading;
+  unsigned long lastChangedTime;
+};
+
 const int pauseBtnPin = 6;
 const int resetBtnPin = 7;
 const int menuBtnPin = 8;
@@ -35,10 +42,12 @@ int currentPauseState = 0;
 int prevPauseState = 0;
 unsigned long timerPausedAt;
 
-int resetTimer = 0;
-int prevResetState = 0;
-unsigned long resetTimerLastDebounceTime = 0;
-unsigned long resetTimerDebounceDelay = 50;
+// int resetTimer = 0;
+// int prevResetState = 0;
+// unsigned long resetTimerLastDebounceTime = 0;
+// unsigned long resetTimerDebounceDelay = 50;
+
+DebouncedButton resetBtn = {resetBtnPin, LOW, LOW, 0};
 
 enum TimerState {
   PAUSED,
@@ -67,6 +76,25 @@ void setup() {
   pinMode(resetBtnPin, INPUT);
   pinMode(menuBtnPin, INPUT);
   pinMode(selectBtnPin, INPUT);
+}
+
+bool wasPressed(DebouncedButton &btn, unsigned long now, unsigned long debounceMs = 50) {
+  bool reading = digitalRead(btn.pin);
+
+  if(reading != btn.lastReading) {
+    btn.lastReading = reading;
+    btn.lastChangedTime = now;
+  }
+
+  if((now - btn.lastChangedTime) >= debounceMs && reading != btn.stableState) {
+    btn.stableState = reading;
+    if(btn.stableState == HIGH) {
+      return true;
+    }
+  }
+
+
+  return false;
 }
 
 void render(int minutes, int seconds, bool focusMode) {
@@ -253,20 +281,10 @@ void loop() {
     currentPauseState = digitalRead(pauseBtnPin);
     toggleTimer(currentPauseState);
 
-    int resetTimerReading = digitalRead(resetBtnPin);
-    if(resetTimerReading != prevResetState) {
-      resetTimerLastDebounceTime = millis();
-      // resetTime(resetTimer);
-    }
-
-    if ((millis() - resetTimerLastDebounceTime) > resetTimerDebounceDelay) {
-      if(resetTimerReading != resetTimer) {
-        resetTimer = resetTimerReading;
-        if(resetTimer == HIGH) {
-          resetTime(resetTimer);
-        }
-      }
-    }
+   if(wasPressed(resetBtn, millis())) {
+    resetTime(HIGH);
+   }
+   
 
     switch (timerState) {
       case PAUSED:
@@ -305,7 +323,7 @@ void loop() {
         }
     }
 
-    prevResetState = resetTimerReading;
+    // prevResetState = resetTimerReading;
     prevPauseState = currentPauseState;
   }
 }
