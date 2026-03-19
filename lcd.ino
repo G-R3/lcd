@@ -230,43 +230,37 @@ void loop() {
       selectedIndex = 0;
     }
   }
-  int select = digitalRead(selectBtnPin);
-  if (select) {
-    // TODO: find how to debounce button presses. this is a hacky solution
-    delay(50);
-    select = digitalRead(selectBtnPin);
-    if (select) {
-      if (screenState == TIMER) {
+  if (wasPressed(selectBtn, millis())) {
+    if (screenState == TIMER) {
+      lcd.clear();
+      screenState = MENU;
+      Serial.println("Returning to menu...");
+      // renderMenu();
+    } else if (screenState == MENU) {
+      if (selectedIndex == 0) {
+        screenState = TIMER;
         lcd.clear();
-        screenState = MENU;
-        Serial.println("Returning to menu...");
-        // renderMenu();
-      } else if (screenState == MENU) {
-        if (selectedIndex == 0) {
-          screenState = TIMER;
-          lcd.clear();
-          initTimer();
-          Serial.println("Starting Timer...");
-        } else if (selectedIndex == 1) {
-          lcd.clear();
-          selectedIndex = 0;
-          screenState = CONFIG;
-          Serial.println("Rendering config...");
-        }
-      } else if (screenState == CONFIG) {
-        if (selectedIndex == 0) {
-          focusTime = 5000;
-          breakTime = 3000;
-          Serial.println("Selected 5 seconds focus, 3 seconds break");
-        } else if (selectedIndex == 1) {
-          focusTime = 10000;
-          breakTime = 5000;
-          Serial.println("Selected 10 seconds focus, 5 seconds break");
-        }
-
-        screenState = MENU;
-        selectedIndex = 1;
+        initTimer();
+        Serial.println("Starting Timer...");
+      } else if (selectedIndex == 1) {
+        lcd.clear();
+        selectedIndex = 0;
+        screenState = CONFIG;
+        Serial.println("Rendering config...");
       }
+    } else if (screenState == CONFIG) {
+      if (selectedIndex == 0) {
+        focusTime = 5000;
+        breakTime = 3000;
+        Serial.println("Selected 5 seconds focus, 3 seconds break");
+      } else if (selectedIndex == 1) {
+        focusTime = 10000;
+        breakTime = 5000;
+        Serial.println("Selected 10 seconds focus, 5 seconds break");
+      }
+
+      screenState = MENU;
+      selectedIndex = 1;
     }
   }
 
