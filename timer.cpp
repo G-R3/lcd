@@ -5,10 +5,10 @@ void Timer::begin(unsigned long now) {
 }
 
 void Timer::update(unsigned long now) {
-  if(modeJustEnded_) {
-      // render 0:00 for 1 second before transitioning to the next mode
-    if(now - modeEndedAt_ >= 1000) {
-      session_ = session_ == Session::Focus ? Session::Break : Session::Focus
+  if (modeJustEnded_) {
+    // render 0:00 for 1 second before transitioning to the next mode
+    if (now - modeEndedAt_ >= 1000) {
+      session_ = session_ == Session::Focus ? Session::Break : Session::Focus;
       startMs_ = now;
       remainingMs_ = computeRemainingMs(now);
       modeJustEnded_ = false;
@@ -16,7 +16,7 @@ void Timer::update(unsigned long now) {
   } else {
     remainingMs_ = computeRemainingMs(now);
 
-    if(remainingMs_ <= 0) {
+    if (remainingMs_ <= 0) {
       remainingMs_ = 0;
       modeEndedAt_ = now;
       modeJustEnded_ = true;
@@ -41,24 +41,24 @@ void Timer::pause(unsigned long now) {
   }
 }
 
-long Timer::remainingMs(unsigned long now) {
-    return remainingMs_;
+long Timer::remainingMs() const {
+  return remainingMs_;
 }
 
-long Timer::computeRemainingMs(unsigned long now) {
+long Timer::computeRemainingMs(unsigned long now) const {
   long time;
   unsigned long elapsedTime = now - startMs_;
 
-  if(session_ == Session::Focus) {
-    time = focusMs - elapsedTime;
+  if (session_ == Session::Focus) {
+    time = focusMs_ - elapsedTime;
   } else {
-    time = breakMs - elapsedTime;
+    time = breakMs_ - elapsedTime;
   }
 
   return time;
 }
 
-FormattedTime Timer::format() {
+FormattedTime Timer::format() const {
   FormattedTime t;
 
   long totalSeconds = (remainingMs_ + 999) / 1000;
@@ -71,9 +71,9 @@ FormattedTime Timer::format() {
 void Timer::reset(unsigned long now) {
   startMs_ = now;
 
-  if(state_ == State::Paused) {
-    pausedAt_ = startMs_;
-    remainingMs_ = Timer::getRemainingMs(now);
+  if (state_ == State::Paused) {
+    pausedAt_ = now;
+    remainingMs_ = Timer::computeRemainingMs(now);
   }
 
   // we want to be able to reset during the transitioning phase (rendering 0:00).
@@ -86,10 +86,10 @@ void Timer::setDurations(unsigned long focusMs, unsigned long breakMs) {
   breakMs_ = breakMs;
 }
 
-Session Timer::session() {
+Session Timer::session() const {
   return session_;
 }
 
-State Timer::state() {
+State Timer::state() const {
   return state_;
 }

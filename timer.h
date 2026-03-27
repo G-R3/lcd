@@ -27,7 +27,7 @@ private:
   unsigned long focusMs_ = 5000;
   unsigned long breakMs_ = 3000;
   long remainingMs_ = focusMs_;
-  
+
   State state_ = State::Running;
   Session session_ = Session::Focus;
 
