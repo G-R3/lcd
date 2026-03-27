@@ -1,10 +1,8 @@
 #include <LiquidCrystal.h>
 #include "button.h";
+#include "timer.h";
 
-struct FormattedTime {
-  int seconds;
-  int minutes;
-};
+Timer timer;
 
 const int pauseBtnPin = 6;
 const int resetBtnPin = 7;
@@ -20,28 +18,10 @@ const int d7 = 2;
 
 LiquidCrystal lcd(rs, enable, d4, d5, d6, d7);
 
-unsigned long startTime;
-// const long focusTime = 1500000 // 25 minutes
-unsigned long focusTime = 5000;  // 5 seconds
-unsigned long breakTime = 3000;  // 3 seconds;
-
-long remainingTime = focusTime;
-
-bool focusMode = true;
-bool modeJustEnded = false;
-unsigned long modeEndedAt = 0;
-
-unsigned long timerPausedAt;
-
 Button resetBtn(resetBtnPin);
 Button selectBtn(selectBtnPin);
 Button menuBtn(menuBtnPin);
 Button pauseBtn(pauseBtnPin);
-
-enum TimerState {
-  PAUSED,
-  RUNNING,
-};
 
 enum Screen {
   MENU,
@@ -49,7 +29,6 @@ enum Screen {
   CONFIG,
 };
 
-TimerState timerState = RUNNING;
 Screen screenState = MENU;
 
 int selectedIndex = 0;
@@ -86,7 +65,7 @@ void render(int minutes, int seconds, bool focusMode) {
 
 
   lcd.setCursor(5, 1);
-  if (timerState == PAUSED) {
+  if (timer.state() == TimerState::PAUSED) {
     lcd.print(" PAUSED");
   } else {
     lcd.print("       ");
@@ -138,71 +117,7 @@ void initTimer() {
     lcd.clear();
     lcd.setCursor(0, 0);
 
-    startTime = millis();
-    remainingTime = focusTime;
-    focusMode = true;
-    timerState = RUNNING;
-
-    modeEndedAt = 0;
-    modeJustEnded = false;
-
-    timerPausedAt = 0;
-  }
-}
-
-void toggleTimer() {
-  if (timerState == RUNNING) {
-    timerPausedAt = millis();
-    timerState = PAUSED;
-  } else {
-    unsigned long pausedFor = millis() - timerPausedAt;
-
-    startTime += pausedFor;
-
-    if (modeJustEnded) {
-      modeEndedAt += pausedFor;
-    }
-
-    timerState = RUNNING;
-  }
-}
-
-long getRemainingTime() {
-  long time;
-  unsigned long elapsedTime = millis() - startTime;
-
-  if (focusMode) {
-    time = focusTime - elapsedTime;
-  } else {
-    time = breakTime - elapsedTime;
-  }
-
-  return time;
-}
-
-FormattedTime formatTime() {
-  FormattedTime t;
-
-  long totalSeconds = (remainingTime + 999) / 1000;
-  t.seconds = totalSeconds % 60;
-  t.minutes = totalSeconds / 60;
-
-  return t;
-}
-
-void resetTime(int resetTimer) {
-  if (resetTimer == HIGH) {
-    Serial.println("Resetting timer...");
-    startTime = millis();
-
-    if (timerState == PAUSED) {
-      timerPausedAt = startTime;
-      remainingTime = getRemainingTime();
-    }
-
-    // we want to be able to reset during the transitioning phase (rendering 0:00).
-    modeEndedAt = 0;
-    modeJustEnded = false;
+    timer.begin(millis());
   }
 }
 
@@ -235,12 +150,14 @@ void loop() {
       }
     } else if (screenState == CONFIG) {
       if (selectedIndex == 0) {
-        focusTime = 5000;
-        breakTime = 3000;
+        long focusTime = 5000;
+        long breakTime = 3000;
+        timer.setDurations(focusTime, breakTime);
         Serial.println("Selected 5 seconds focus, 3 seconds break");
       } else if (selectedIndex == 1) {
-        focusTime = 10000;
-        breakTime = 5000;
+        long focusTime = 10000;
+        long breakTime = 5000;
+        timer.setDurations(focusTime, breakTime);
         Serial.println("Selected 10 seconds focus, 5 seconds break");
       }
 
@@ -255,46 +172,28 @@ void loop() {
     renderConfig();
   } else if (screenState == TIMER) {
     if (pauseBtn.wasPressed(millis())) {
-      toggleTimer();
+      timer.pause(millis());
     }
 
     if (resetBtn.wasPressed(millis())) {
-      resetTime(HIGH);
+      timer.reset(millis());
     }
 
-    switch (timerState) {
-      case PAUSED:
+    switch (timer.state()) {
+      case TimerState::PAUSED:
         {
-          auto time = formatTime();
+          auto t = timer.format();
 
-          render(time.minutes, time.seconds, focusMode);
+          render(t.minutes, t.seconds, timer.session() == TimerSession::FOCUS);
           break;
         }
-      case RUNNING:
+      case TimerState::RUNNING:
         {
+          timer.update(millis());
 
-          if (modeJustEnded) {
-            // render 0:00 for 1 second before transitioning to the next mode
-            if (millis() - modeEndedAt >= 1000) {
-              focusMode = !focusMode;
-              startTime = millis();
-              remainingTime = getRemainingTime();
-              modeJustEnded = false;
-            }
-          } else {
-            remainingTime = getRemainingTime();
+          auto t = timer.format();
 
-            if (remainingTime <= 0) {
-              remainingTime = 0;
-              modeEndedAt = millis();
-              modeJustEnded = true;
-            }
-          }
-
-
-          auto time = formatTime();
-
-          render(time.minutes, time.seconds, focusMode);
+          render(t.minutes, t.seconds, timer.session() == TimerSession::FOCUS);
 
           break;
         }
